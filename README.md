@@ -148,4 +148,4 @@ python main_optimization.py
 * **[Aditya, Vishnunand & Karthikeya Siripuram]** 
 
 
-*This project was conducted as part of the Major Project for [Your Degree/University].*
+*This project was conducted as part of the Major Project for [NITW].*
