@@ -1,151 +1,118 @@
 
 
-# Stochastic Optimization of a Wells Turbine for North Atlantic Sea States
+# Multi-Stage Optimization of a Wells Turbine for North Atlantic Sea States
 
-### A Physics-Informed Surrogate Model Approach to OWC Wave Energy Conversion
+### A Hybrid CFD & Physics-Informed Neural Network (PINN) Approach for OWC Systems
 
 ---
 
 ## 🌊 Project Overview
 
-The **Wells Turbine** is the standard Power Take-Off (PTO) mechanism for Oscillating Water Column (OWC) wave energy converters. However, standard blade geometries (e.g., NACA 0015) suffer from **early aerodynamic stall** under the high-velocity, stochastic flow conditions characteristic of energetic ocean sites. This results in significant power capping and structural vibration during storms—precisely when energy potential is highest.
+The **Wells Turbine** is the standard Power Take-Off (PTO) mechanism for Oscillating Water Column (OWC) wave energy converters. However, standard symmetric blade geometries (e.g., NACA 0015) suffer from **early aerodynamic stall** under the high-velocity, stochastic flow conditions characteristic of energetic ocean sites.
 
-This project develops a **Site-Specific Geometric Optimization Framework**. Instead of relying on generic "textbook" blade shapes, we built a **Physics-Informed Neural Network (PINN)** surrogate model coupled with **16,759 hours of real spectral ocean data** to design a blade specifically tuned for the North Atlantic wave climate.
+This project develops a **Sequential Machine-Learning-Assisted Optimization Framework**. Because evaluating the 5-dimensional design space $(AoA, V_{in}, RPM, D, N)$ using full 3D transient CFD is computationally prohibitive, we decoupled the physics. We integrated **16,759 hours of real spectral ocean data** to set boundary conditions, generated discrete CFD matrices, and built a **Physics-Informed Neural Network (PINN)** to interpolate the continuous efficiency surfaces between numerical steps.
 
 ---
 
 ## 🎯 Problem Statement
 
-* **The Limitation:** Standard symmetrical airfoils (NACA 0015) stall at relatively low Angles of Attack (~12-14°).
-* **The Environment:** Real ocean waves are stochastic. NOAA Station 41001 data reveals air velocities in the OWC chamber frequently exceed 40 m/s, pushing turbines deep into the stall regime.
-* **The Solution:** We utilize Generative AI to explore the non-linear design space of airfoil thickness (), balancing low-speed viscous efficiency against high-speed stall delay to maximize **Annual Energy Production (AEP)**.
+* **The Environment:** Real ocean waves are stochastic. NOAA Station 41001 data reveals air velocities inside the OWC chamber frequently exceed 40 m/s during storm regimes, pushing standard turbines deep into stall.
+* **The Computational Bottleneck:** Traditional brute-force CFD sweeps across all aerodynamic and kinematic variables simultaneously require thousands of hours on HPC clusters.
+* **The Solution:** A staggered dimensionality-reduction pipeline. We isolate 2D aerodynamics, transition to 3D rotational kinematics, and finalize with turbine assembly. The PINN acts as an intelligent interpolator, bridging the gaps between discrete $4 \times 4$ CFD matrices to pinpoint the absolute global maximum efficiency.
 
 ---
 
 ## 📂 Dataset & Physics Inputs
 
-### 1. Oceanographic Data (The "Fuel")
+### 1. Oceanographic Data (The Environmental Bounds)
 
-We utilized archival data from **NOAA Station 41001 (East Hatteras)** as a high-energy reference site.
+Archival data from **NOAA Station 41001 (East Hatteras)** establishes the real-world operational boundaries.
 
-* **`41001h2023.txt`:** Significant Wave Height () and Dominant Period (). Used to derive the intake Air Velocity Probability Density Function (PDF).
-* **`41001d2023.txt`:** Mean Wave Direction (). Used to determine optimal chamber orientation via Wave Rose analysis.
-* **`41001w2023.txt`:** Spectral Density (). Validates the energy frequency bands.
+* **`41001h2023.txt`:** Significant Wave Height ($H_s$) and Dominant Period ($T_p$) used to derive the intake Air Velocity Probability Density Function ($V_{in}$).
+* **`41001d2023.txt` & `41001w2023.txt`:** Mean Wave Direction and Spectral Density to validate energy frequency bands.
 
-### 2. Aerodynamic Data (The "Mechanism")
+### 2. CFD Training Matrices (The "Ground Truth")
 
-* **Ground Truth:** 2D RANS CFD simulations (Ansys Fluent, k-omega SST model).
-* **Training Data:** Synthetic physics generation based on NACA 4-series equations for initial training, calibrated via Transfer Learning with lab-generated Polars.
-* **Geometries:** NACA 0010, 0015, 0018, 0024 digitized coordinates.
-
----
-
-## ⚙️ Methodology: The "Digital Twin" Pipeline
-
-The project follows a 4-stage scientific pipeline:
-
-### Phase 1: Environmental Characterization
-
-We parsed raw meteorological files to calculate the **Pneumatic Power Available**.
-
-
-
-We derived the **Air Velocity Distribution** inside the chamber using the Piston-Flow assumption with an area ratio of 75:1.
-
-### Phase 2: Surrogate Modeling (The AI)
-
-Training a Deep Neural Network (DNN) to act as a real-time aerodynamic solver.
-
-* **Inputs:** Reynolds Number (), Angle of Attack (), Thickness Ratio ().
-* **Outputs:** Lift (), Drag (), Moment ().
-* **Advantage:** The AI predicts performance in milliseconds, whereas CFD takes hours, allowing us to test thousands of blade shapes.
-
-### Phase 3: Stochastic Optimization
-
-We utilized a bounded minimization algorithm (`scipy.optimize`) to maximize AEP.
-
-* **Objective Function:** 
-* **Variable:** Blade Thickness ().
-* **Constraint:** Structural solidity limits (12% to 30%).
-
-### Phase 4: Validation (The "Victory Lap")
-
-The AI-optimized design is validated against the industry standard (NACA 0015) by plotting efficiency curves across the full operational range (0–50 m/s).
+* **Solver:** Ansys Fluent, Pressure-Based, Steady-State.
+* **Turbulence Model:** $k-\omega$ Shear Stress Transport (SST) to accurately capture boundary layer separation.
+* **Profiles Evaluated:** NACA 0015 (Current), NACA 0018, NACA 0024.
 
 ---
 
-## 📊 Key Results
+## ⚙️ Methodology: The Sequential PINN-CFD Algorithm
 
-* **Optimal Geometry:** The algorithm converged on a non-standard thickness of **~24.1%** (approx. NACA 0024).
-* **Performance Gain:** The optimized blade delays stall onset by approximately **4 degrees** compared to the NACA 0015.
-* **Energy Capture:** Significant efficiency gains were observed in the "Storm Regime" ( m/s), where the standard turbine typically chokes.
+The project executes optimization across four staggered phases to minimize computational load while maximizing design fidelity.
 
----
+### Phase 1: 2D Aerodynamic Parametric Sweep
 
-## 🧪 Nomenclature & Parameters
+Isolating the pure aerodynamic profile (infinite span assumption) to evaluate lift and drag before and after stall.
 
-| Symbol | Parameter | Role |
-| --- | --- | --- |
-| **** | Significant Wave Height | Primary energy input metric. |
-| **** | Dominant Wave Period | Determines flow frequency. |
-| **** | Angle of Attack | Key aerodynamic variable; determines stall. |
-| **** | Reynolds Number | Ratio of inertial to viscous forces (). |
-| **** | Thickness-to-Chord Ratio | **The Optimization Variable.** |
-| **** | Lift & Drag Coefficients | Performance metrics from CFD/AI. |
-| **AEP** | Annual Energy Production | The final success metric. |
+* **Variables:** Angle of Attack ($AoA \in \{4^\circ, 8^\circ, 12^\circ, 17^\circ\}$), Inlet Velocity ($V_{in} \in \{6, 11, 15, 19\}$ m/s).
+* **Execution:** 16 discrete 2D CFD simulations.
+* **ML Output:** The PINN interpolates the $4 \times 4$ matrix to find the continuous optimal tuple $(AoA_{opt}, V_{in,opt})$.
+
+### Phase 2: 3D Kinematic Optimization
+
+Transitioning the optimal aerodynamic coordinates into a 3D rotating reference frame to capture tip leakage vortices and radial flow effects.
+
+* **Variables:** Blade Speed ($RPM \in \{1000, 1300, 1700, 1900\}$), Hub Diameter ($D \in \{220, 240, 260, 300\}$ mm).
+* **Execution:** 16 discrete 3D CFD simulations.
+* **ML Output:** The PINN updates its gradient map to find the 4-variable optimal state $(AoA, V_{in}, RPM, D)_{opt}$.
+
+### Phase 3: Assembly & Solidity Optimization
+
+The central hub is introduced. The final geometric variable is the number of blades ($N$). The PINN evaluates the trade-off between increased torque generation and aerodynamic cascade blockage to finalize the rotor solidity ($\sigma$).
+
+### Phase 4: Final Validation
+
+A single, high-fidelity full-scale 3D CFD simulation is run using the PINN's final predicted parameters to validate the predicted efficiency gain against the standard baseline turbine.
 
 ---
 
 ## 💻 Tech Stack
 
 * **Language:** Python 3.10+
-* **Machine Learning:** TensorFlow / Keras (Surrogate Modeling)
-* **Optimization:** SciPy (`minimize_scalar`)
+* **Machine Learning:** TensorFlow / Keras (Physics-Informed Surrogate Modeling)
+* **Optimization:** SciPy (`minimize_scalar`), Gradient Ascent
+* **CFD Automation:** Ansys PyFluent (`ansys-fluent-core`)
 * **Data Processing:** Pandas, NumPy
-* **Visualization:** Matplotlib, Seaborn
-* **External Validation:** Ansys Fluent (CFD)
+* **External Validation:** Ansys Workbench
 
 ---
 
-## 🚀 How to Run
+## 🚀 Repository Structure & Execution
 
 1. **Clone the Repo:**
+
 ```bash
-git clone https://github.com/your-username/wells-turbine-optimization.git
+git clone https://github.com/your-username/wells-turbine-pinn-optimization.git
 
 ```
-
 
 2. **Install Dependencies:**
+
 ```bash
-pip install numpy pandas matplotlib tensorflow scipy scikit-learn
+pip install numpy pandas matplotlib tensorflow scipy ansys-fluent-core
 
 ```
 
+3. **Execution Flow:**
 
-3. **Add Data:**
-Place the NOAA text files (`41001h2023.txt`, etc.) in the `/data` directory.
-4. **Run the Genesis Script:**
-```bash
-python main_optimization.py
-
-```
-
-
+* `/data/`: Contains NOAA raw text files.
+* `/cfd_automation/`: Python scripts to auto-generate the 16-run Ansys Fluent matrices.
+* `/ml_models/`: Contains the PINN architectures for Phase 1 and Phase 2 interpolations.
+* `main_pipeline.py`: The master script executing the optimization algorithm.
 
 ---
 
-## 🔮 Future Work
+## 🔮 Current Progress & Future Work
 
-1. **Lab Calibration:** Current "Transfer Learning" protocols will be updated with fresh experimental data from the university wind tunnel to correct AI bias.
-2. **3D Effects:** Analytical corrections for Aspect Ratio () and Tip Loss are currently applied; full 3D CFD validation is scheduled for the final optimized geometry.
-3. **Guide Vane Integration:** Future optimization will include the pitch angle of Inlet Guide Vanes (IGVs).
+1. **Environmental Modeling:** Complete. Oceanographic bounds have been successfully translated into CFD inlet velocity regimes.
+2. **Current Phase:** The Phase 1 ($4 \times 4$) 2D aerodynamic sweep for the baseline NACA 0015 is currently computing.
+3. **Future Scope:** Upon completion of the NACA 0015 full assembly, the identical automated pipeline will be deployed for thicker profiles (NACA 0018 and NACA 0024) to execute a comprehensive cross-profile comparative analysis.
 
 ---
 
 ### Authors
 
-* **[Aditya, Vishnunand & Karthikeya Siripuram]** 
-
-
-*This project was conducted as part of the Major Project for [NITW].*
+* **Aditya** * **Vishnunand** * **Karthikeya Siripuram** *This research is conducted as part of the Major Project for the National Institute of Technology Warangal (NITW).*
